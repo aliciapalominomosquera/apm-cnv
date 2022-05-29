@@ -60,6 +60,10 @@ CNA_paper['13q'] = ['chr13', '13q14.3', 50900001, 55300000]
 CNA_paper['17p'] = ['chr17', '17p13.1', 6500001, 10700000]
 CNA_paper['20q'] = ['chr20', '20q12', 40709452, 41818422]
 
+# Describe CNA_13q convolutions
+CNA_13q = {}
+CNA_13q['13q'] = ['chr13', '13q14.3', 50900000, 55300000]
+
 # Indexes to CNA_original values
 iChr = 0; iCyt = 1; iStart = 2; iEnd = 3
 
@@ -72,4 +76,6 @@ ichorcnaRegionFormat = 'ichorcnaRegionFormat'
 ichorcnaSegmentFormat = 'ichorcnaSegmentFormat'
 
 # Define which CNA to use
-CNA = CNA_arm
+CNA = CNA_original
+#CNA = CNA_arm
+#CNA = CNA_R

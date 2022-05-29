@@ -2,7 +2,7 @@ from CNAdefs import *
 import pandas as pd
 
 # Obtain weighted-mean value based on overlap of clinical deletion/gain and CNV intervals in bed coordinates
-def weightedMeanValues(fileName, chrColName, startColName, endColName, valueColName, intChromValue, defaultValue='NA'):
+def weightedMeanValues(CNA, cnas, fileName, chrColName, startColName, endColName, valueColName, intChromValue, defaultValue='NA'):
   # Read the data frame
   df = pd.read_csv(fileName,sep="\t")
   debug = False
@@ -11,7 +11,7 @@ def weightedMeanValues(fileName, chrColName, startColName, endColName, valueColN
   w_values = {}
   for cna in cnas:
     if (debug):
-      print(f'CNA chromosome {CNA[cna][iChr]}, bed interval [{CNA[cna][iStart]}, {CNA[cna][iEnd]}]')
+      print(f'CNA {cna}, chromosome {CNA[cna][iChr]}, bed interval [{CNA[cna][iStart]}, {CNA[cna][iEnd]}]')
     ###################################################################################################################
     # Gymnastics with sub-dataframe for a given chromosome
     # Refer to the chromosome as number (integer)

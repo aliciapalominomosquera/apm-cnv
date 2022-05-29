@@ -54,7 +54,7 @@ def getSEtable(diagnosis, cnas, TFPN_sheet):
     colNames[colName] = col
   # Create table
   table = {}
-  table['names'] = ['Lesion', 'FN', 'FP', 'TN', 'TP', 'Sensitivity', 'Specificity', 'PPV', 'NPV']
+  table['names'] = ['Lesion', 'FN', 'FP', 'TN', 'TP', 'Sensitivity', 'Specificity', 'PPV', 'NPV', 'Accuracy']
   for cna in cnas: 
     tcna = f't{cna}'
     col = colNames[tcna]
@@ -70,7 +70,7 @@ def getSEtable(diagnosis, cnas, TFPN_sheet):
       elif (TFPN_sheet.cell(row, col).value==TP and TFPN_sheet.cell(row, colNames['Diagnosis']).value==diagnosis):
         TPcount = TPcount + 1 
     eps = 1e-32
-    table[tcna] = [cna, FNcount, FPcount, TNcount, TPcount, TPcount / (TPcount + FNcount + eps), TNcount / (TNcount + FPcount + eps), TPcount / (TPcount + FPcount + eps), TNcount / (TNcount + FNcount + eps)] 
+    table[tcna] = [cna, FNcount, FPcount, TNcount, TPcount, TPcount / (TPcount + FNcount + eps), TNcount / (TNcount + FPcount + eps), TPcount / (TPcount + FPcount + eps), TNcount / (TNcount + FNcount + eps), (TPcount + TNcount) / (TPcount + FPcount + TNcount + FNcount + eps)] 
   return table
 
 def writeSETable(diagnosis, cnas, TFPN_sheet, tableFileName):
@@ -112,7 +112,7 @@ for i in range(Ncolumns):
 
 # TODO add comments
 # Input parametrs
-# First provide one of the cnv methods to be used: canary-kurtz-cytobands, canary-kurtz-arms, canary-mse-cytobands, canary-mse-arms, wisecondor
+# First provide one of the cnv methods to be used: canary-kurtz-cytobands, canary-kurtz-arms, canary-mse-cytobands, canary-mse-newcytobands, canary-mse-arms, wisecondor, testcnvkit, testichor
 cnvMethod = 'canary-kurtz-arms'
 if (len(sys.argv)>=2):
   cnvMethod = sys.argv[1]
@@ -141,9 +141,14 @@ if (updateTables):
       fileName = f'canary-python/results-canary/results-canary-mse/Sample_{HLabel}-T1_Tumor.cnvZscores'
       chrColName = "#chr"; intChromValue = False; startColName = "start"; endColName = "end"; valueColName = "gc.corrected.norm.log.std.index.zWeighted.Final"
       gainThreshold = 1.96; deletionThreshold = -1.96
+    # File name and column names used in canary-mse new output cytobands
+    elif (cnvMethod=='canary-mse-newcytobands'):
+      fileName = f'/drive3/mse/CNV/Alicia/results-canary2_new/Sample_{HLabel}-T1_Tumor.cnvZscores'
+      chrColName = "#chr"; intChromValue = False; startColName = "start"; endColName = "end"; valueColName = "gc.corrected.norm.log.std.index.zWeighted.Final"
+      gainThreshold = 1.96; deletionThreshold = -1.96
     # File name and column names used in canary-mse output arms
     elif (cnvMethod=='canary-mse-arms'):
-      fileName = f'/drive3/mse/CNV/Alicia/results-canary3/Sample_{HLabel}-T1_Tumor.cnvZscores'
+      fileName = f'/drive3/mse/CNV/Alicia/results-canary5/Sample_{HLabel}-T1_Tumor.cnvZscores'
       chrColName = "#chr"; intChromValue = False; startColName = "start"; endColName = "end"; valueColName = "gc.corrected.norm.log.std.index.zWeighted.Final" 
       gainThreshold = 1.96; deletionThreshold = -1.96
     # File name and column names used in wisecondor output
@@ -171,16 +176,19 @@ if (updateTables):
       fileName = f'ichorcna/results-ichorcna/{HLabel}.cna.seg'
       chrColName = "chr"; intChromValue = True; startColName = "start"; endColName = "end"; valueColName = f'{HLabel}.copy.number'
       gainThreshold = 2.0; deletionThreshold = 2.0
+   # 
     else:
-      print(f'Provided cnv method {cnvMethod} not in the supported list: canary-kurtz-cytobands, canary-kurtz-arms, canary-mse-cytobands, canary-mse-arms, wisecondor, cnvkit-cns, cnvkit-cnr, ichorcna-cns,ichorcna-cnr')
+      print(f'Provided cnv method {cnvMethod} not in the supported list: canary-kurtz-cytobands, canary-kurtz-arms, canary-mse-cytobands, canary-mse-newcytobands, canary-mse-arms, wisecondor, cnvkit-cns, cnvkit-cnr, ichorcna-cns,ichorcna-cnr')
 
     # Obtain zscore for every cna from CNAdefs
     print(f'fileName: {fileName}')
-    w_zscores = weightedMeanValues(fileName, chrColName, startColName, endColName, valueColName, intChromValue, defaultValue)
+    w_zscores = weightedMeanValues(CNA, cnas, fileName, chrColName, startColName, endColName, valueColName, intChromValue, defaultValue)
     updateSheets(row, colNames, w_zscores, z_sheet, TFPN_sheet, gainThreshold, deletionThreshold)
     print(f'{cnvMethod} {HLabel} {w_zscores}')
   # Save the updated excel table
   z_book.save(z_table_name)
+  # Comment what. why, how is saved?
+  z_book.save(f'tables/{cnvMethod}-Zscore_table.xlsx')
   TFPN_book.save(TFPN_table_name)
 
 # Writing the resulting tables
