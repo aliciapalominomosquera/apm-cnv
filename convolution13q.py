@@ -4,6 +4,8 @@ import sys
 import numpy as np
 from CNAdefs import *
 from weightedmeanvalue import weightedMeanValues
+import pandas as pd
+import matplotlib.pyplot as plt
 
 # Clinical result of karyotype or fish
 TP = 'TP'; FP = 'FP'; FN = 'FN'; TN = 'TN'; NA = 'NA'
@@ -45,7 +47,7 @@ def updateSheets(row, colNames, w_values, value_sheet, TFPN_sheet, gainThreshold
       else:
         TFPN_sheet.cell(row, colNames[tcna]).value = NA
 
-def getSEtable(diagnosis, cnas, TFPN_sheet):
+def getSEtable(diagnosis, cnas, TFPN_sheet, nameInterval, width, center):
   # Names to indexes of TFPN sheet
   colNames = {}
   for i in range(TFPN_sheet.max_column):
@@ -54,7 +56,7 @@ def getSEtable(diagnosis, cnas, TFPN_sheet):
     colNames[colName] = col
   # Create table
   table = {}
-  table['names'] = ['Lesion', 'FN', 'FP', 'TN', 'TP', 'Sensitivity', 'Specificity', 'PPV', 'NPV', 'Accuracy']
+  table['names'] = ['CNA', 'Interval', 'width', 'center', 'FN', 'FP', 'TN', 'TP', 'Sensitivity', 'Specificity', 'PPV', 'NPV', 'Accuracy']
   for cna in cnas:
     tcna = f't{cna}'
     col = colNames[tcna]
@@ -70,7 +72,7 @@ def getSEtable(diagnosis, cnas, TFPN_sheet):
       elif (TFPN_sheet.cell(row, col).value==TP and TFPN_sheet.cell(row, colNames['Diagnosis']).value==diagnosis):
         TPcount = TPcount + 1 
     eps = 1e-32
-    table[tcna] = [cna, FNcount, FPcount, TNcount, TPcount, TPcount / (TPcount + FNcount + eps), TNcount / (TNcount + FPcount + eps), TPcount / (TPcount + FPcount + eps), TNcount / (TNcount + FNcount + eps), (TPcount + TNcount) / (TPcount + FPcount + TNcount + FNcount + eps)] 
+    table[tcna] = [cna, nameInterval, width, center, FNcount, FPcount, TNcount, TPcount, TPcount / (TPcount + FNcount + eps), TNcount / (TNcount + FPcount + eps), TPcount / (TPcount + FPcount + eps), TNcount / (TNcount + FNcount + eps), (TPcount + TNcount) / (TPcount + FPcount + TNcount + FNcount + eps)] 
   return table
 
 def writeSETable(diagnosis, cnas, TFPN_sheet, tableFileName):
@@ -112,129 +114,172 @@ for i in range(Ncolumns):
 
 # TODO add comments
 # Input parametrs
-# First provide one of the cnv methods to be used: canary-kurtz-cytobands, canary-kurtz-arms, canary-mse-cytobands, canary-mse-newcytobands, canary-mse-arms, wisecondor, testcnvkit, testichor
+# First provide one of the cnv methods to be used: canary-kurtz-cytobands, canary-kurtz-arms, canary-mse-cytobands, canary-mse-newcytobands, canary-mse-arms, wisecondor, canary-kurtz-offtarget-cnr, testcnvkit, testichor
 cnvMethod = 'canary-kurtz-arms'
 if (len(sys.argv)>=2):
   cnvMethod = sys.argv[1]
-updateTables = False
+updateDataFrame = False
 if (len(sys.argv)>=3):
   if (sys.argv[2]=='yes'):
-    updateTables = True
+    updateDataFrame = True
 
-#intervals = [[48877883, 51654998]] # CG2018 paper
-widthCG2018 = 51654998 - 48877883
-centerCG2018 = (51654998 + 48877883) / 2
-Nshift = 1
-Nsteps = 50
-Nwidths = 5 
-convolutionWidth = True
-# Shifting convolution
-centerMin = centerCG2018 - Nshift * widthCG2018
-centerMax = centerCG2018 + Nshift * widthCG2018
-centers = np.linspace(centerMin, centerMax, Nsteps)
-intervals = []
-if (not convolutionWidth):
-  width = widthCG2018
-  for center in centers:
-    intervals.append([int(center - width / 2), int(center + width / 2)])
-else:
-  # Kernel with convolution
-  widthMin = 0.2 * widthCG2018
-  widthMax = 2.0 * widthCG2018
-  widths = np.linspace(widthMin, widthMax, Nwidths)
-  for center in centers:
-    for width in widths:
-      intervals.append([int(center - width / 2), int(center + width / 2)])
+if (updateDataFrame):
+  #intervals = [[48877883, 51654998]] # CG2018 paper
+  widthCG2018 = 51654998 - 48877883
+  centerCG2018 = (51654998 + 48877883) / 2
+  Nshift = 4
+  Nsteps = 100
+  Nwidths = 7 
+  convolutionWidth = True
+  # Shifting convolution
+  centerMin = centerCG2018 - Nshift * widthCG2018
+  centerMax = centerCG2018 + Nshift * widthCG2018
+  centers = np.linspace(centerMin, centerMax, Nsteps)
+  intervals = []
+  if (not convolutionWidth):
+    width = widthCG2018
+    for center in centers:
+      intervals.append([center, width])
+  else:
+    # Kernel with convolution
+    widthMin = 0.1 * widthCG2018
+    widthMax = 2.0 * widthCG2018
+    widths = np.linspace(widthMin, widthMax, Nwidths)
+    for center in centers:
+      for width in widths:
+        intervals.append([center, width])
 
-CNA = {}
-# Describe CNA_13q convolutions
-#CNA_13q = {}
-#CNA_13q['13q'] = ['chr13', '13q14.2-3', 48877883, 51654998]
+  CNA = {}
+  # Describe CNA_13q convolutions
+  #CNA_13q = {}
+  #CNA_13q['13q'] = ['chr13', '13q14.2-3', 48877883, 51654998]
 
-cnas = ['13q']
-#CNA = CNA_13q
-for interval in intervals:
-  CNA['13q'] = ['chr13', '13q14.2-3', interval[0], interval[1]]
-  if (updateTables):
-    for i in range(200):#range(Nrows-1):
-      row = i + 2 
-      HLabel = ref_sheet.cell(row, colNames['HSTAMP_Label']).value
-      # Default weighted meanvalue (redefine if needed in particular case)
-      defaultValue = 'NA'
-      # File name and column names used in canary-kurtz output cytobands
-      if (cnvMethod=='canary-kurtz-cytobands'):
-        fileName = f'/drive3/dkurtz/HEMESTAMP/CANARy/samples/output/Sample_{HLabel}-T1_Tumor.SegmentedGenome.cytobands-noXY.on-off-combined.txt'
-        chrColName = "chrNum"; intChromValue = True; startColName = "Start"; endColName = "End"; valueColName = "combinedStoufferZL2CNR"
-        gainThreshold = 1.96; deletionThreshold = -1.96
-      # File name and column names used in canary-kurtz output arms
-      elif (cnvMethod=='canary-kurtz-arms'):
-        fileName = f'/drive3/dkurtz/HEMESTAMP/CANARy/samples/output/Sample_{HLabel}-T1_Tumor.SegmentedGenome.arms.on-off-combined.txt'
-        chrColName = "chrNum"; intChromValue = True; startColName = "Start"; endColName = "End"; valueColName = "combinedStoufferZL2CNR" 
-        gainThreshold = 1.96; deletionThreshold = -1.96
-      # File name and column names used in canary-mse output cytobands
-      elif (cnvMethod=='canary-mse-cytobands'):
-        fileName = f'canary-python/results-canary/results-canary-mse/Sample_{HLabel}-T1_Tumor.cnvZscores'
-        chrColName = "#chr"; intChromValue = False; startColName = "start"; endColName = "end"; valueColName = "gc.corrected.norm.log.std.index.zWeighted.Final"
-        gainThreshold = 1.96; deletionThreshold = -1.96
-      # File name and column names used in canary-mse new output cytobands
-      elif (cnvMethod=='canary-mse-newcytobands'):
-        fileName = f'/drive3/mse/CNV/Alicia/results-canary2_new/Sample_{HLabel}-T1_Tumor.cnvZscores'
-        chrColName = "#chr"; intChromValue = False; startColName = "start"; endColName = "end"; valueColName = "gc.corrected.norm.log.std.index.zWeighted.Final"
-        gainThreshold = 1.96; deletionThreshold = -1.96
-      # File name and column names used in canary-mse output arms
-      elif (cnvMethod=='canary-mse-arms'):
-        fileName = f'/drive3/mse/CNV/Alicia/results-canary5/Sample_{HLabel}-T1_Tumor.cnvZscores'
-        chrColName = "#chr"; intChromValue = False; startColName = "start"; endColName = "end"; valueColName = "gc.corrected.norm.log.std.index.zWeighted.Final" 
-        gainThreshold = 1.96; deletionThreshold = -1.96
-      # File name and column names used in wisecondor output
-      elif (cnvMethod=='wisecondor'):
-        fileName = f'wisecondor/testSamples/Sample_{HLabel}-T1_Tumor.sorted.samtools-deduped.sorted.offtarget.std.txt'
-        chrColName = "chrNum"; intChromValue = True; startColName = "Start"; endColName = "End"; valueColName = "z-score"; defaultValue = 0
-        gainThreshold = 1.96; deletionThreshold = -1.96
-      # File name and column names used in cnvki-cnst output. Note that cnvkit uses copynumber rather than z-score
-      elif (cnvMethod=='cnvkit-cns'):
-        fileName = f'cnvkit/results-cnn-tumor/Sample_{HLabel}-T1_Tumor.samtools.call.cns'
-        chrColName = "chromosome"; intChromValue = False; startColName = "start"; endColName = "end"; valueColName = "cn"
-        gainThreshold = 2.0; deletionThreshold = 2.0
-      # File name and column names used in cnvkit-cnr output. Note that cnvkit uses copynumber rather than z-score
-      elif (cnvMethod=='cnvkit-cnr'):
-        fileName = f'cnvkit/results-cnn-tumor/Sample_{HLabel}-T1_Tumor.samtools.call.cnr'
-        chrColName = "chromosome"; intChromValue = False; startColName = "start"; endColName = "end"; valueColName = "cn"
-        gainThreshold = 2.0; deletionThreshold = 2.0
-      # File name and column names used in ichorcna-cns output. Note that ichorcna uses copynumber rather than z-score
-      elif (cnvMethod=='ichorcna-cns'):
-        fileName = f'ichorcna/results-ichorcna/{HLabel}.seg'
-        chrColName = "chr"; intChromValue = True; startColName = "start"; endColName = "end"; valueColName = "copy.number"
-        gainThreshold = 2.0; deletionThreshold = 2.0
-      # File name and column names used in ichorcna-cnr output. Note that ichorcna uses copynumber rather than z-score
-      elif (cnvMethod=='ichorcna-cnr'):
-        fileName = f'ichorcna/results-ichorcna/{HLabel}.cna.seg'
-        chrColName = "chr"; intChromValue = True; startColName = "start"; endColName = "end"; valueColName = f'{HLabel}.copy.number'
-        gainThreshold = 2.0; deletionThreshold = 2.0
-      # 
-      else:
-        print(f'Provided cnv method {cnvMethod} not in the supported list: canary-kurtz-cytobands, canary-kurtz-arms, canary-mse-cytobands, canary-mse-newcytobands, canary-mse-arms, wisecondor, cnvkit-cns, cnvkit-cnr, ichorcna-cns,ichorcna-cnr')
+  cnas = ['13q']
 
-      # Obtain zscore for every cna from CNAdefs
-      print(f'fileName: {fileName}')
-      w_zscores = weightedMeanValues(CNA, cnas, fileName, chrColName, startColName, endColName, valueColName, intChromValue, defaultValue)
-      updateSheets(row, colNames, w_zscores, z_sheet, TFPN_sheet, gainThreshold, deletionThreshold)
-      print(f'{cnvMethod} {HLabel} {w_zscores}')
-    # Save the updated excel table
-    z_book.save(z_table_name)
-    # Comment what. why, how is saved?
-    z_book.save(f'tables/{cnvMethod}-Zscore_table.xlsx')
-    TFPN_book.save(TFPN_table_name)
+  dataCLL = [] 
+  #CNA = CNA_13q
+  for interval in intervals:
+    center = interval[0]; width = interval[1]
+    intervalStart = int(center - width / 2.0); intervalEnd = int(center + width / 2.0)
+    CNA['13q'] = ['chr13', '13q14.2-3', intervalStart, intervalEnd]
+    if (True):
+      for i in range(200):#range(Nrows-1):
+        row = i + 2 
+        HLabel = ref_sheet.cell(row, colNames['HSTAMP_Label']).value
+        # Default weighted meanvalue (redefine if needed in particular case)
+        defaultValue = 'NA'
+        # File name and column names used in canary off-target cnr
+        if (cnvMethod=='canary-kurtz-offtarget-cnr'):
+          fileName = f'/drive3/dkurtz/HEMESTAMP/CANARy/samples/output/Sample_{HLabel}-T1_Tumor.NoWGS.NormalizedGenome.cnr'
+          chrColName = "V1"; intChromValue = False; startColName = "V2"; endColName = "V3"; valueColName = "ZLog2CNR"
+          gainThreshold = 1.96; deletionThreshold = -1.96
+        # File name and column names used in canary-kurtz output cytobands
+        elif (cnvMethod=='canary-kurtz-cytobands'):
+          fileName = f'/drive3/dkurtz/HEMESTAMP/CANARy/samples/output/Sample_{HLabel}-T1_Tumor.SegmentedGenome.cytobands-noXY.on-off-combined.txt'
+          chrColName = "chrNum"; intChromValue = True; startColName = "Start"; endColName = "End"; valueColName = "combinedStoufferZL2CNR"
+          gainThreshold = 1.96; deletionThreshold = -1.96
+        # File name and column names used in canary-kurtz output arms
+        elif (cnvMethod=='canary-kurtz-arms'):
+          fileName = f'/drive3/dkurtz/HEMESTAMP/CANARy/samples/output/Sample_{HLabel}-T1_Tumor.SegmentedGenome.arms.on-off-combined.txt'
+          chrColName = "chrNum"; intChromValue = True; startColName = "Start"; endColName = "End"; valueColName = "combinedStoufferZL2CNR" 
+          gainThreshold = 1.96; deletionThreshold = -1.96
+        # File name and column names used in canary-mse output cytobands
+        elif (cnvMethod=='canary-mse-cytobands'):
+          fileName = f'canary-python/results-canary/results-canary-mse/Sample_{HLabel}-T1_Tumor.cnvZscores'
+          chrColName = "#chr"; intChromValue = False; startColName = "start"; endColName = "end"; valueColName = "gc.corrected.norm.log.std.index.zWeighted.Final"
+          gainThreshold = 1.96; deletionThreshold = -1.96
+        # File name and column names used in canary-mse new output cytobands
+        elif (cnvMethod=='canary-mse-newcytobands'):
+          fileName = f'/drive3/mse/CNV/Alicia/results-canary2_new/Sample_{HLabel}-T1_Tumor.cnvZscores'
+          chrColName = "#chr"; intChromValue = False; startColName = "start"; endColName = "end"; valueColName = "gc.corrected.norm.log.std.index.zWeighted.Final"
+          gainThreshold = 1.96; deletionThreshold = -1.96
+        # File name and column names used in canary-mse output arms
+        elif (cnvMethod=='canary-mse-arms'):
+          fileName = f'/drive3/mse/CNV/Alicia/results-canary5/Sample_{HLabel}-T1_Tumor.cnvZscores'
+          chrColName = "#chr"; intChromValue = False; startColName = "start"; endColName = "end"; valueColName = "gc.corrected.norm.log.std.index.zWeighted.Final" 
+          gainThreshold = 1.96; deletionThreshold = -1.96
+        # File name and column names used in wisecondor output
+        elif (cnvMethod=='wisecondor'):
+          fileName = f'wisecondor/testSamples/Sample_{HLabel}-T1_Tumor.sorted.samtools-deduped.sorted.offtarget.std.txt'
+          chrColName = "chrNum"; intChromValue = True; startColName = "Start"; endColName = "End"; valueColName = "z-score"; defaultValue = 0
+          gainThreshold = 1.96; deletionThreshold = -1.96
+        # File name and column names used in cnvki-cnst output. Note that cnvkit uses copynumber rather than z-score
+        elif (cnvMethod=='cnvkit-cns'):
+          fileName = f'cnvkit/results-cnn-tumor/Sample_{HLabel}-T1_Tumor.samtools.call.cns'
+          chrColName = "chromosome"; intChromValue = False; startColName = "start"; endColName = "end"; valueColName = "cn"
+          gainThreshold = 2.0; deletionThreshold = 2.0
+        # File name and column names used in cnvkit-cnr output. Note that cnvkit uses copynumber rather than z-score
+        elif (cnvMethod=='cnvkit-cnr'):
+          fileName = f'cnvkit/results-cnn-tumor/Sample_{HLabel}-T1_Tumor.samtools.call.cnr'
+          chrColName = "chromosome"; intChromValue = False; startColName = "start"; endColName = "end"; valueColName = "cn"
+          gainThreshold = 2.0; deletionThreshold = 2.0
+        # File name and column names used in ichorcna-cns output. Note that ichorcna uses copynumber rather than z-score
+        elif (cnvMethod=='ichorcna-cns'):
+          fileName = f'ichorcna/results-ichorcna/{HLabel}.seg'
+          chrColName = "chr"; intChromValue = True; startColName = "start"; endColName = "end"; valueColName = "copy.number"
+          gainThreshold = 2.0; deletionThreshold = 2.0
+        # File name and column names used in ichorcna-cnr output. Note that ichorcna uses copynumber rather than z-score
+        elif (cnvMethod=='ichorcna-cnr'):
+          fileName = f'ichorcna/results-ichorcna/{HLabel}.cna.seg'
+          chrColName = "chr"; intChromValue = True; startColName = "start"; endColName = "end"; valueColName = f'{HLabel}.copy.number'
+          gainThreshold = 2.0; deletionThreshold = 2.0
+        # 
+        else:
+          print(f'Provided cnv method {cnvMethod} not in the supported list: canary-kurtz-offtarget-cnr, canary-kurtz-cytobands, canary-kurtz-arms, canary-mse-cytobands, canary-mse-newcytobands, canary-mse-arms, wisecondor, cnvkit-cns, cnvkit-cnr, ichorcna-cns,ichorcna-cnr')
 
-  # Writing the resulting tables
-  TFPN_sheets = {}
-  TFPN_sheets[cnvMethod] = TFPN_sheet
-  for method in TFPN_sheets:
+        # Obtain zscore for every cna from CNAdefs
+        print(f'fileName: {fileName}')
+        w_zscores = weightedMeanValues(CNA, cnas, fileName, chrColName, startColName, endColName, valueColName, intChromValue, defaultValue)
+        updateSheets(row, colNames, w_zscores, z_sheet, TFPN_sheet, gainThreshold, deletionThreshold)
+        print(f'{cnvMethod} {HLabel} {w_zscores}')
+
+      # Save the updated excel table
+      z_book.save(z_table_name)
+      # Comment what. why, how is saved?
+      z_book.save(f'tables/{cnvMethod}-Zscore_table.xlsx')
+      TFPN_book.save(TFPN_table_name)
+
     # Define CLL diagnosis, the list of its CNAs, and the name of the written table
-    diagnosis = 'CLL'; CLLcnas = ['13q'] 
-    tableFileName = 'tables/convolution13q/'+method+"-"+str(interval[1]-interval[0])+"-"+str(interval[0])+"-"+str(interval[1])+'-'+diagnosis+'-tableSE.txt'
-    writeSETable(diagnosis, CLLcnas, TFPN_sheets[method], tableFileName)
-    # Define MM diagnosis, the list of its CNAs, and the name of the written table
-    diagnosis = 'MM'; MMcnas = ['13q'] 
-    tableFileName = 'tables/convolution13q/'+method+"-"+str(interval[1]-interval[0])+"-"+str(interval[0])+"-"+str(interval[1])+'-'+diagnosis+'-tableSE.txt'
-    writeSETable(diagnosis, MMcnas, TFPN_sheets[method], tableFileName)
+    diagnosis = 'CLL'; CLLcnas = ['13q']
+    table = getSEtable(diagnosis, CLLcnas, TFPN_sheet, str(intervalStart)+"-"+str(intervalEnd), width, center)
+    singleDataCLL = table['t13q']
+    dataCLL.append(singleDataCLL)
+
+    ## Writing the resulting tables
+    #TFPN_sheets = {}
+    #TFPN_sheets[cnvMethod] = TFPN_sheet
+    #for method in TFPN_sheets:
+    #  # Define CLL diagnosis, the list of its CNAs, and the name of the written table
+    #  diagnosis = 'CLL'; CLLcnas = ['13q']
+    #  table = getSEtable(diagnosis, CLLcnas, TFPN_sheet[method], str(intervalStart)+"-"+str(intervalEnd), width, center)
+    #  singleDataCLL = table['13q']
+    #  dataCLL.append(singleDataCLL)
+    #  # Define MM diagnosis, the list of its CNAs, and the name of the written table
+    #  diagnosis = 'MM'; MMcnas = ['13q']
+    #  # TODO: reuse CLL example
+  df = pd.DataFrame(dataCLL)
+  df.columns = ['CNA', 'Interval', 'width', 'center', 'FN', 'FP', 'TN', 'TP', 'Sensitivity', 'Specificity', 'PPV', 'NPV', 'Accuracy']
+  print(df)
+  df.to_csv('table-13qconvolution.txt', sep='\t', index=False)
+else:
+  df = pd.read_csv(f'table-13qconvolution-{widthMin}-{cnvMethod}.txt', sep="\t")
+  grouped = df.groupby(['width'])
+  uid = df.width.unique()
+  print(uid)
+  fig, ax = plt.subplots(nrows=len(uid), figsize=(7, 4))
+  for width, df_fit in grouped:
+    # get the index of the current ID, and use it to index ax
+    axi = np.argwhere(uid==width)[0][0]
+    # plot to the correct ax based on the index of the ID
+    df_fit.plot(x='center', y='Accuracy', ax=ax[axi], label=f'{width}',
+                xlabel='intervals', ylabel='Accuracy', title=f'interval width: {width}', marker='.', rot=30)
+
+    # place the legend outside the plot
+    # ax[axi].legend(title='Cutoff', bbox_to_anchor=(1.05, 1), loc='upper left')
+
+plt.tight_layout()
+plt.savefig('test.png')
+
+  #ax = df.plot(x='center', y='Accuracy', style='o')
+  #ax.figure.savefig(f'tmp.png')
+  #ax.figure.clf()
