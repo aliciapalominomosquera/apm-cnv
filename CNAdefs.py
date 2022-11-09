@@ -60,6 +60,27 @@ CNA_paper['13q'] = ['chr13', '13q14.3', 50900001, 55300000]
 CNA_paper['17p'] = ['chr17', '17p13.1', 6500001, 10700000]
 CNA_paper['20q'] = ['chr20', '20q12', 40709452, 41818422]
 
+# Playing CNA
+CNA_play = {}
+CNA_play['1p'] = ['chr1', '1p32.2', 56100000, 59000000]
+CNA_play['1q'] = ['chr1', '1q21.2', 147000000, 150300000]
+CNA_play['5q'] = ['chr5', '5q31.2', 136200000, 139500000]
+CNA_play['mono5'] = ['chr5', '5p15.2', 9800001, 15000000]
+CNA_play['7q'] = ['chr7', '7q31', 107400001, 127100000]
+CNA_play['mono7'] = ['chr7', '7p11.1-q11.1', 58000001, 61700000]
+CNA_play['trisomy8'] = ['chr8', '8p11.1', 43100000, 45600000]
+CNA_play['11q'] = ['chr11', '11q22.3', 108093559, 108239826] #11q22.3 ontarget-part
+CNA_play['trisomy12'] = ['chr12', '12p11.1', 33300000, 35800000]
+CNA_play['13q'] = ['chr13', '13q14.3', '50701942', '50840798']
+#CNA_play['13q'] = ['chr13', '13q14.3', 49748887, 52803713] #Best cnvkit 13q 
+CNA_play['17p'] = ['chr17', '17p13.1', 6500000, 10700000]
+CNA_play['20q'] = ['chr20', '20q12', 37600000, 41700000]
+
+# Describe CNA for HL in cedrix data (amp 9p24.1 and del 6p21.3)
+CNA_HL = {}
+CNA_HL['9p24.1'] = ['chr9', '9p24.1', 4600001, 9000000] 
+CNA_HL['6p21.3'] = ['chr6', '6p21.3', 30400001, 36600000]
+
 # Describe CNA_13q convolutions
 CNA_13q = {}
 CNA_13q['13q'] = ['chr13', '13q14.3', 50900000, 55300000]
@@ -68,7 +89,8 @@ CNA_13q['13q'] = ['chr13', '13q14.3', 50900000, 55300000]
 iChr = 0; iCyt = 1; iStart = 2; iEnd = 3
 
 # Define list of CNA_originals to loop over
-cnas = ['1p', '1q', '5q', '7q', 'trisomy8', '11q', 'trisomy12', '13q', '17p', '20q']
+#cnas = ['1p', '1q', '5q', '7q', 'trisomy8', '11q', 'trisomy12', '13q', '17p', '20q']
+cnas = ['9p24.1']
 
 # Different cnv file formats
 cnvkitFormat = 'cnvkitFormat'
@@ -76,6 +98,8 @@ ichorcnaRegionFormat = 'ichorcnaRegionFormat'
 ichorcnaSegmentFormat = 'ichorcnaSegmentFormat'
 
 # Define which CNA to use
-CNA = CNA_original
+#CNA = CNA_original
 #CNA = CNA_arm
 #CNA = CNA_R
+#CNA = CNA_play
+CNA = CNA_HL
